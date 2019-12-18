@@ -15,6 +15,7 @@ import org.springframework.test.context.jdbc.Sql;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
@@ -40,6 +41,9 @@ public class SesiDaoTest {
 
     @Autowired
     private SesiDao sd;
+
+    @Autowired
+    private DataSource ds;
 
     @Test
     public void testCariByMateri(){
@@ -70,6 +74,56 @@ public class SesiDaoTest {
 
         Sesi s = hasil.getContent().get(0);
         assertEquals("Java Web",s.getMateri().getNama());
+    }
+
+    @Test
+    public void testSaveSesi() throws ParseException {
+        Peserta p1 = new Peserta();
+        p1.setId("aa1");
+
+        Peserta p2 = new Peserta();
+        p2.setId("aa3");
+
+        Materi m = new Materi();
+        m.setId("aa8");
+
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+        Date sejak = formatter.parse("2019-02-01");
+        Date sampai = formatter.parse("2019-02-03");
+
+        Sesi s = new Sesi();
+        s.setMateri(m);
+        s.setMulai(sejak);
+        s.setSampai(sampai);
+        s.getDaftarPeserta().add(p1);
+        s.getDaftarPeserta().add(p2);
+
+        sd.save(s);
+        String idSesiBaru = s.getId();
+        assertNotNull(idSesiBaru);
+        System.out.println("ID Baru : "+s.getId());
+
+        String sql = "select count(*) from sesi where id_materi='aa8'";
+        String sqlManytoMany = "select count(*) from peserta_pelatihan " +
+                "where id_sesi=?";
+
+        try(Connection c = ds.getConnection()) {
+            //cek table sesi
+            ResultSet rs = c.createStatement().executeQuery(sql);
+            assertTrue(rs.next());
+            assertEquals(1L,rs.getLong(1));
+
+            //cek table ralasi many to many dengan peserta
+            PreparedStatement ps = c.prepareStatement(sqlManytoMany);
+            ps.setString(1, idSesiBaru);
+            ResultSet rs2 = ps.executeQuery();
+
+            assertTrue(rs2.next());
+            assertEquals(2L, rs2.getLong(1));
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
 }
